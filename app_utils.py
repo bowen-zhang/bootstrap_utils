@@ -31,7 +31,7 @@ class ServerApp(Starlette):
     def __init__(
             self, 
             apps: list[ConnectASGIApplication],
-            descriptors: list[protobuf.DescFile] = None,
+            descriptors: list[protobuf.DescFile] | None = None,
             stop_handler: Callable[[], None] | None = None,
             dev: bool = False,
         ):
