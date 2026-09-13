@@ -11,6 +11,8 @@ from connectrpc_grpcreflect import ServerReflectionASGIApplication, ServerReflec
 from starlette.applications import Starlette
 from starlette.routing import Mount
 
+_logger = logging.getLogger(__name__) 
+
 
 def _setup_logging(log_level: str = "INFO"):
     log_format = "[%(levelname)s] {%(name)s} %(message)s"
@@ -29,14 +31,16 @@ class ServerApp(Starlette):
     def __init__(
             self, 
             apps: list[ConnectASGIApplication],
-            descriptors: list[protobuf.DescFile],
+            descriptors: list[protobuf.DescFile] = None,
             stop_handler: Callable[[], None] | None = None,
             dev: bool = False,
         ):
         self._stop_handler = stop_handler
 
-        reflection_app = ServerReflectionASGIApplication(ServerReflectionService(*descriptors))
-        all_apps = apps + [reflection_app]
+        all_apps = apps
+        if descriptors:
+            reflection_app = ServerReflectionASGIApplication(ServerReflectionService(*descriptors))
+            all_apps = apps + [reflection_app]
 
         super().__init__(
             routes=[Mount(app.path, app) for app in all_apps],
@@ -46,6 +50,7 @@ class ServerApp(Starlette):
         _setup_logging("DEBUG" if dev else "INFO")
 
     def _stop(self) -> None:
+        _logger.info("Stopping server app...")
         if self._stop_handler:
             self._stop_handler()
 
