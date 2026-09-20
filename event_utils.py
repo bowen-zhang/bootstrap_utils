@@ -124,6 +124,23 @@ class _UserContext(typing.Generic[_T]):
             subscriber.put_nowait(event)
 
 
+class EventQueueContext(typing.Generic[_T]):
+    def __init__(self, event_manager: EventManager, user_id: str, max_size: int | None):
+        self._event_manager = event_manager
+        self._user_id = user_id
+        self._max_size = max_size
+        self._queue = None
+
+    def __enter__(self) -> EventQueue[_T]:
+        self._queue = self._event_manager.subscribe(self._user_id, self._max_size)
+        return self._queue
+
+    def __exit__(self, exc_type, exc, tb):
+        if self._queue:
+            self._event_manager.unsubscribe(self._user_id, self._queue)
+            self._queue = None
+
+
 class EventManager(typing.Generic[_T]):
     """Manage event delivery and broadcasting for multiple users.
 
@@ -136,6 +153,9 @@ class EventManager(typing.Generic[_T]):
         self._user_contexts = {}
         self._total_subscribed_users = metric_builder.gauge("total_subscribed_users")
         self._active_subscribed_users = metric_builder.gauge("active_subscribed_users")
+
+    def new(self, user_id: str, max_size: int | None = None) -> EventQueueContext[_T]:
+        return EventQueueContext(self, user_id, max_size)
 
     def subscribe(self, user_id: str, max_size: int | None = None) -> EventQueue[_T]:
         if user_id not in self._user_contexts:
