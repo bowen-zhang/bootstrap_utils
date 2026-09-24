@@ -2,8 +2,8 @@ import asyncio
 import logging
 import protobuf
 import signal
-import sys
 
+from . import logging_utils
 from collections.abc import Callable
 from contextlib import asynccontextmanager
 from connectrpc.server import ConnectASGIApplication
@@ -11,20 +11,8 @@ from connectrpc_grpcreflect import ServerReflectionASGIApplication, ServerReflec
 from starlette.applications import Starlette
 from starlette.routing import Mount
 
+
 _logger = logging.getLogger(__name__) 
-
-
-def _setup_logging(log_level: str = "INFO"):
-    log_format = "[%(levelname)s] {%(name)s} %(message)s"
-    
-    # 1. Configure standard stdout handler
-    stream_handler = logging.StreamHandler(sys.stdout)
-    stream_handler.setFormatter(logging.Formatter(log_format))
-    
-    # 2. Configure root logger
-    root_logger = logging.getLogger()
-    root_logger.setLevel(log_level)
-    root_logger.handlers = [stream_handler] # Replace default handlers
 
 
 class ServerApp(Starlette):
@@ -47,7 +35,7 @@ class ServerApp(Starlette):
             lifespan=self.lifespan if stop_handler else None,
         )
 
-        _setup_logging("DEBUG" if dev else "INFO")
+        logging_utils.setup_logging("DEBUG" if dev else "INFO")
 
     def _stop(self) -> None:
         _logger.info("Stopping server app...")
