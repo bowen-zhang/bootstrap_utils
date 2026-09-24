@@ -1,6 +1,7 @@
 import asyncio
 import datetime
 import enum
+import queue
 import typing
 
 
@@ -117,10 +118,9 @@ class Topic(typing.Generic[_T]):
             if value == queue:
                 subscriber_id = key
                 break
-        if subscriber_id is None:
-            raise EventException("Subscriber not found for the given queue.")
-        
-        del self._subscribers[subscriber_id]
+        if subscriber_id:
+            del self._subscribers[subscriber_id]
+
         queue.close()
 
     def unsubscribe_all(self) -> None:
