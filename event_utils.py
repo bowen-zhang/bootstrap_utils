@@ -1,10 +1,15 @@
 import asyncio
 import datetime
 import enum
-import queue
+import inspect
+import logging
 import typing
 
+from collections.abc import Awaitable, Callable
+from typing import Any
 
+
+_logger = logging.getLogger(__name__)
 _T = typing.TypeVar('_T')
 
 class EventException(Exception):
@@ -133,3 +138,38 @@ class Topic(typing.Generic[_T]):
         self._last_published_at = datetime.datetime.now(tz=datetime.timezone.utc)
         for subscriber in self._subscribers.values():
             subscriber.put_nowait(event)
+
+
+class SyncTopic(typing.Generic[_T]):
+    _sync_subscribers: list[Callable[[_T], None]]
+    _async_subscribers: list[Callable[[_T], Awaitable[None]]]
+
+    def __init__(self):
+        self._sync_subscribers = []
+        self._async_subscribers = []
+
+    def subscribe(self, callback: Callable[[_T], Any]) -> None:
+        if inspect.iscoroutinefunction(callback):
+            self._async_subscribers.append(callback)
+        else:
+            self._sync_subscribers.append(callback)
+
+    def unsubscribe(self, callback: Callable[[_T], Any]) -> None:
+        if inspect.iscoroutinefunction(callback):
+            if callback in self._async_subscribers:
+                self._async_subscribers.remove(callback)
+        else:
+            if callback in self._sync_subscribers:
+                self._sync_subscribers.remove(callback)
+
+    async def publish(self, event: _T) -> None:
+        for subscriber in self._sync_subscribers:
+            try:
+                subscriber(event)
+            except Exception as ex:
+                _logger.exception("Error in subscriber callback.")
+        for subscriber in self._async_subscribers:
+            try:
+                await subscriber(event)
+            except Exception as ex:
+                _logger.exception("Error in async subscriber callback.")
