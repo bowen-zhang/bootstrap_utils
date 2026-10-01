@@ -1,4 +1,5 @@
 import asyncio
+import ctypes
 import inspect
 import logging
 import queue
@@ -160,6 +161,11 @@ class GuiApp:
             height: Optional[int] = None,
             resizeable: bool = True,
         ):
+        try:
+            ctypes.windll.shcore.SetProcessDpiAwareness(1)
+        except:
+            pass    
+
         self._root = tk.Tk()
         self._root.title(title)
         if width is not None and height is not None:
@@ -178,7 +184,7 @@ class GuiApp:
             if sys.platform == "darwin":
                 self._style.theme_use("aqua")
             elif sys.platform == "win32":
-                self._style.theme_use("vista")
+                self._style.theme_use("arc")
         except Exception:
             pass
 
