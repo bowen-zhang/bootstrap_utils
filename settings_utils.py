@@ -16,6 +16,7 @@ class SettingsLoader(typing.Generic[_T]):
         self._proto_cls = proto_cls
 
     def load(self, config_path: Path) -> _T:
+        print(f"Loading settings from {config_path}...")
         _logger.info("Loading settings from %s", config_path)
         with config_path.open("r", encoding="utf-8") as fh:
             parsed = yaml.safe_load(fh) or {}
