@@ -8,6 +8,7 @@ from collections.abc import Callable
 from contextlib import asynccontextmanager
 from connectrpc.server import ConnectASGIApplication
 from connectrpc_grpcreflect import ServerReflectionASGIApplication, ServerReflectionService
+from hypercorn import config, run
 from starlette.applications import Starlette
 from starlette.routing import Mount
 
@@ -60,3 +61,14 @@ class ServerApp(Starlette):
             for sig, previous_handler in previous_handlers.items():
                 loop.remove_signal_handler(sig)
                 signal.signal(sig, previous_handler)
+
+
+def run_app(app_entry: str, port: int, host: str = "0.0.0.0", dev: bool = False):
+    logging_utils.setup_logging("DEBUG" if dev else "INFO")
+
+    cfg = config.Config()
+    cfg.bind = [f"{host}:{port}"]
+    cfg.use_reloader = dev
+    cfg.application_path = "main:create_app()"
+    cfg.graceful_timeout = 3
+    run.run(cfg)
