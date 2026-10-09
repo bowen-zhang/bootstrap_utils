@@ -99,6 +99,13 @@ class Topic(typing.Generic[_T]):
     def last_published_at(self) -> datetime.datetime | None:
         return self._last_published_at
 
+    @property
+    def _logdata(self) -> dict[str, typing.Any]:
+        return {
+            "topic": self._name,
+            "subscribers": self.subscriber_count,
+        }
+
     def new(self, subscriber_id: str, max_size: int | None = None) -> EventQueueContext[_T]:
         return EventQueueContext(self, subscriber_id, max_size)
 
@@ -112,9 +119,12 @@ class Topic(typing.Generic[_T]):
             else:
                 raise EventException(f"Subscriber with ID '{subscriber_id}' already exists.")
         
+        _logger.info(f"Subscribing topic.", extra=self._logdata | {"subscriber_id": subscriber_id})
+
         capacity = max_size if max_size is not None else self._DEFAULT_QUEUE_MAX_SIZE
         queue = EventQueue[_T](maxsize=capacity)
         self._subscribers[subscriber_id] = queue
+        
         return queue
 
     def unsubscribe(self, queue: EventQueue[_T]) -> None:
@@ -124,17 +134,21 @@ class Topic(typing.Generic[_T]):
                 subscriber_id = key
                 break
         if subscriber_id:
+            _logger.info(f"Unsubscribing topic.", extra=self._logdata | {"subscriber_id": subscriber_id})
             del self._subscribers[subscriber_id]
 
         queue.close()
 
     def unsubscribe_all(self) -> None:
+        _logger.info(f"Unsubscribing all subscribers.", extra=self._logdata)
         subscribers = list(self._subscribers.values())
         self._subscribers.clear()
         for queue in subscribers:
             queue.close()
 
     def publish(self, event: _T) -> None:
+        _logger.info(f"Publishing event.", extra=self._logdata | {"event_type": type(event).__name__})
+
         self._last_published_at = datetime.datetime.now(tz=datetime.timezone.utc)
         for subscriber in self._subscribers.values():
             subscriber.put_nowait(event)
