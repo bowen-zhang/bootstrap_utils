@@ -43,14 +43,24 @@ class EventQueue(typing.Generic[_T]):
 
 
 class EventQueueContext(typing.Generic[_T]):
-    def __init__(self, topic: Topic[_T], subscriber_id: str, max_size: int | None):
+    def __init__(
+            self,
+            topic: Topic[_T],
+            subscriber_id: str,
+            max_size: int | None,
+            initial_events: list[_T] | None = None
+        ):
         self._topic = topic
         self._subscriber_id = subscriber_id
         self._max_size = max_size
+        self._initial_events = initial_events
         self._queue = None
 
     def __enter__(self) -> EventQueue[_T]:
         self._queue = self._topic.subscribe(self._subscriber_id, self._max_size)
+        if self._initial_events:
+            for event in self._initial_events:
+                self._queue.put_nowait(event)
         return self._queue
 
     def __exit__(self, exc_type, exc, tb):
@@ -106,8 +116,13 @@ class Topic(typing.Generic[_T]):
             "subscribers": self.subscriber_count,
         }
 
-    def new(self, subscriber_id: str, max_size: int | None = None) -> EventQueueContext[_T]:
-        return EventQueueContext(self, subscriber_id, max_size)
+    def new(
+            self,
+            subscriber_id: str,
+            max_size: int | None = None,
+            initial_events: list[_T] | None = None,
+    ) -> EventQueueContext[_T]:
+        return EventQueueContext(self, subscriber_id, max_size, initial_events)
 
     def subscribe(
         self, subscriber_id: str, max_size: int | None = None
