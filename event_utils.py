@@ -169,7 +169,31 @@ class Topic(typing.Generic[_T]):
             subscriber.put_nowait(event)
 
 
-class SyncTopic(typing.Generic[_T]):
+class SimpleTopic[_T]:
+    _sync_subscribers: list[Callable[[_T], None]]
+
+    def __init__(self):
+        self._sync_subscribers = []
+
+    def subscribe(self, callback: Callable[[_T], Any]) -> None:
+        self._sync_subscribers.append(callback)
+
+    def unsubscribe(self, callback: Callable[[_T], Any]) -> None:
+        if callback in self._sync_subscribers:
+            self._sync_subscribers.remove(callback)
+
+    def publish(self, event: _T) -> None:
+        for subscriber in self._sync_subscribers:
+            try:
+                subscriber(event)
+            except Exception as ex:
+                _logger.exception("Error in subscriber callback.")
+
+    def close(self) -> None:
+        self._sync_subscribers.clear()
+
+
+class SyncTopic[_T]:
     _sync_subscribers: list[Callable[[_T], None]]
     _async_subscribers: list[Callable[[_T], Awaitable[None]]]
 
@@ -202,3 +226,7 @@ class SyncTopic(typing.Generic[_T]):
                 await subscriber(event)
             except Exception as ex:
                 _logger.exception("Error in async subscriber callback.")
+
+    def close(self) -> None:
+        self._sync_subscribers.clear()
+        self._async_subscribers.clear()
