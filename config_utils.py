@@ -12,16 +12,22 @@ _logger = logging.getLogger(__name__)
 
 
 class YamlLoader(typing.Generic[_T]):
-    def __init__(self, proto_cls: typing.Type[_T]):
+    def __init__(self, proto_cls: typing.Type[_T], on_load: typing.Callable[[_T], None] | None = None):
         self._proto_cls = proto_cls
+        self._on_load = on_load
 
     def load(self, config_path: Path) -> _T:
-        with open(config_path, "r", encoding="utf-8") as fh:
-            parsed = yaml.safe_load(fh) or {}
+        try:
+            with open(config_path, "r", encoding="utf-8") as fh:
+                parsed = yaml.safe_load(fh) or {}
 
-        message = self._proto_cls.from_json(json.dumps(parsed))
-   
-        return message
+            result = self._proto_cls.from_json(json.dumps(parsed))
+            if self._on_load:
+                self._on_load(result)
+            return result
+        except Exception as e:
+            _logger.error(f"Failed to load {config_path}: {e}")
+            raise
 
     def load_all(self, config_path: Path) -> list[_T]:
         configs = []
