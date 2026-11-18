@@ -29,9 +29,10 @@ class YamlLoader(typing.Generic[_T]):
             _logger.error(f"Failed to load {config_path}: {e}")
             raise
 
-    def load_all(self, config_path: Path) -> list[_T]:
+    def load_all(self, config_path: Path, include_subdirectories: bool = False) -> list[_T]:
         configs = []
-        for file_path in config_path.glob("*.yaml"):
+        pattern = "**/*.yaml" if include_subdirectories else "*.yaml"
+        for file_path in config_path.glob(pattern):
             configs.append(self.load(file_path))
 
         _logger.info(f"Loaded {len(configs)} {self._proto_cls.__name__}.")
