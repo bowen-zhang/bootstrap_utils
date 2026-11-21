@@ -57,7 +57,7 @@ class ServerAuthInterceptor(MetadataInterceptor):
         if method == self._token_refresh_method:
             self._on_token_refresh_method(ctx)
         elif method in self._whitelist_methods:
-            self._on_whitelist_method(ctx)
+            await self._on_whitelist_method(ctx)
         elif method in self._api_key_methods:
             await self._on_api_key_method(ctx)
         else:
@@ -67,9 +67,12 @@ class ServerAuthInterceptor(MetadataInterceptor):
         account_id = self._auth_reader.read_refresh_token(ctx)
         _set_account_id(ctx, account_id)
 
-    def _on_whitelist_method(self, ctx: RequestContext) -> None:
-        method = f"{ctx.method.service_name}/{ctx.method.name}"
-        _logger.info(f"Skipping auth check for whitelisted method: {method}")
+    async def _on_whitelist_method(self, ctx: RequestContext) -> None:
+        try:
+            await self._on_api_key_method(ctx)
+        except:
+            method = f"{ctx.method.service_name}/{ctx.method.name}"
+            _logger.info(f"Skipping auth check for whitelisted method: {method}")
 
     async def _on_api_key_method(self, ctx: RequestContext) -> None:
         api_key = self._read_api_key(ctx)
@@ -113,7 +116,12 @@ class ServerAuthWriter(ServerAuthAccessor):
         self._refresh_token_expiration_seconds = refresh_token_expiration_seconds
         self._refresh_token_path = refresh_token_path
         
-    def grant(self, ctx: RequestContext, user_id: str) -> None:
+    def grant(self, ctx: RequestContext, user_id: str, expire_by: datetime.datetime | None = None) -> None:
+        if expire_by:
+            max_age = int((expire_by - datetime.datetime.now(datetime.timezone.utc)).total_seconds())
+        else:
+            max_age = self._refresh_token_expiration_seconds
+            
         rpc_utils.set_cookie(
             ctx,
             name=self._ACCESS_TOKEN_COOKIE_NAME,
@@ -132,7 +140,7 @@ class ServerAuthWriter(ServerAuthAccessor):
             httponly=True,
             secure=True,
             samesite="Strict",
-            max_age=self._refresh_token_expiration_seconds,
+            max_age=max_age,
         )
 
     def reset(self, ctx: RequestContext) -> None:
